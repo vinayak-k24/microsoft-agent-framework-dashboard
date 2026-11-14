@@ -1,0 +1,135 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Dedicated demo data tier. Public networking is explicit opt-in; never permits all Azure SQL clients. Foundry/ACR/monitoring are owned by the azd microsoft.foundry provider."
+  },
+  "parameters": {
+    "environmentName": { "type": "string", "minLength": 2, "maxLength": 20 },
+    "location": { "type": "string" },
+    "tenantId": { "type": "string", "minLength": 36, "maxLength": 36 },
+    "developerObjectId": { "type": "string", "minLength": 36, "maxLength": 36 },
+    "developerAdminName": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "runtimeObjectId": { "type": "string", "defaultValue": "", "maxLength": 36, "metadata": { "description": "Leave empty during provisioning. Bootstrap supplies the verified deployed instance principal; never supply a project/pull identity." } },
+    "allowPublicDemoNetworking": { "type": "bool", "defaultValue": false },
+    "sqlAllowedIpRanges": { "type": "array", "defaultValue": [], "metadata": { "description": "Explicit {startIpAddress,endIpAddress} IPv4 ranges including developer and verified hosted egress. No 0.0.0.0 or unrestricted ranges. Script validates before any writes." } },
+    "tags": { "type": "object", "defaultValue": { "application": "article-workflow", "purpose": "demo" } }
+  },
+  "variables": {
+    "token": "[uniqueString(resourceGroup().id, parameters('environmentName'))]",
+    "sqlName": "[concat('sql-article-', variables('token'))]",
+    "storageName": "[concat('starticle', variables('token'))]",
+    "containerId": "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageName'), 'default', 'articles')]",
+    "blobRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2025-01-01",
+      "name": "[variables('sqlName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('environment', parameters('environmentName')))]",
+      "properties": {
+        "version": "12.0",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "[if(parameters('allowPublicDemoNetworking'), 'Enabled', 'Disabled')]",
+        "administrators": {
+          "administratorType": "ActiveDirectory",
+          "principalType": "User",
+          "login": "[parameters('developerAdminName')]",
+          "sid": "[parameters('developerObjectId')]",
+          "tenantId": "[parameters('tenantId')]",
+          "azureADOnlyAuthentication": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2025-01-01",
+      "name": "[concat(variables('sqlName'), '/articles')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('environment', parameters('environmentName')))]",
+      "dependsOn": ["[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"],
+      "sku": { "name": "Basic", "tier": "Basic", "capacity": 5 },
+      "properties": { "maxSizeBytes": 2147483648, "requestedBackupStorageRedundancy": "Local" }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/transparentDataEncryption",
+      "apiVersion": "2025-01-01",
+      "name": "[concat(variables('sqlName'), '/articles/current')]",
+      "dependsOn": ["[resourceId('Microsoft.Sql/servers/databases', variables('sqlName'), 'articles')]"],
+      "properties": { "state": "Enabled" }
+    },
+    {
+      "condition": "[parameters('allowPublicDemoNetworking')]",
+      "copy": { "name": "sqlFirewall", "count": "[length(parameters('sqlAllowedIpRanges'))]" },
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2025-01-01",
+      "name": "[concat(variables('sqlName'), '/approved-', copyIndex('sqlFirewall'))]",
+      "dependsOn": ["[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"],
+      "properties": {
+        "startIpAddress": "[parameters('sqlAllowedIpRanges')[copyIndex('sqlFirewall')].startIpAddress]",
+        "endIpAddress": "[parameters('sqlAllowedIpRanges')[copyIndex('sqlFirewall')].endIpAddress]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2025-06-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "tags": "[union(parameters('tags'), createObject('environment', parameters('environmentName')))]",
+      "kind": "StorageV2",
+      "sku": { "name": "Standard_LRS" },
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowSharedKeyAccess": false,
+        "allowBlobPublicAccess": false,
+        "allowCrossTenantReplication": false,
+        "defaultToOAuthAuthentication": true,
+        "publicNetworkAccess": "[if(parameters('allowPublicDemoNetworking'), 'Enabled', 'Disabled')]",
+        "networkAcls": { "bypass": "None", "defaultAction": "[if(parameters('allowPublicDemoNetworking'), 'Allow', 'Deny')]" },
+        "encryption": { "keySource": "Microsoft.Storage", "services": { "blob": { "enabled": true, "keyType": "Account" } } }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2025-06-01",
+      "name": "[concat(variables('storageName'), '/default')]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"],
+      "properties": { "deleteRetentionPolicy": { "enabled": true, "days": 7 }, "containerDeleteRetentionPolicy": { "enabled": true, "days": 7 } }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2025-06-01",
+      "name": "[concat(variables('storageName'), '/default/articles')]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageName'), 'default')]"],
+      "properties": { "publicAccess": "None" }
+    },
+    {
+      "condition": "[not(empty(parameters('runtimeObjectId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('containerId'), parameters('runtimeObjectId'), variables('blobRole'))]",
+      "scope": "[variables('containerId')]",
+      "dependsOn": ["[variables('containerId')]"],
+      "properties": { "roleDefinitionId": "[variables('blobRole')]", "principalId": "[parameters('runtimeObjectId')]", "principalType": "ServicePrincipal" }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('containerId'), parameters('developerObjectId'), variables('blobRole'))]",
+      "scope": "[variables('containerId')]",
+      "dependsOn": ["[variables('containerId')]"],
+      "properties": { "roleDefinitionId": "[variables('blobRole')]", "principalId": "[parameters('developerObjectId')]", "principalType": "User" }
+    }
+  ],
+  "outputs": {
+    "AZURE_SQL_SERVER_HOSTNAME": { "type": "string", "value": "[reference(resourceId('Microsoft.Sql/servers', variables('sqlName')), '2025-01-01').fullyQualifiedDomainName]" },
+    "AZURE_SQL_DATABASE_NAME": { "type": "string", "value": "articles" },
+    "AZURE_SQL_CONNECTION_STRING": { "type": "string", "value": "[concat('Server=tcp:', reference(resourceId('Microsoft.Sql/servers', variables('sqlName')), '2025-01-01').fullyQualifiedDomainName, ',1433;Database=articles;Authentication=ActiveDirectoryDefault;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;')]" },
+    "AZURE_STORAGE_ACCOUNT_URL": { "type": "string", "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2025-06-01').primaryEndpoints.blob]" },
+    "AZURE_STORAGE_CONTAINER": { "type": "string", "value": "articles" },
+    "ARTICLE_RUNTIME_PRINCIPAL_ID": { "type": "string", "value": "[parameters('runtimeObjectId')]" }
+  }
+}

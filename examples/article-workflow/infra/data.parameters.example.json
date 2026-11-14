@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "dev" },
+    "location": { "value": "REPLACE_WITH_APPROVED_REGION" },
+    "tenantId": { "value": "REPLACE_WITH_TENANT_GUID" },
+    "developerObjectId": { "value": "REPLACE_WITH_DEVELOPER_GUID" },
+    "developerAdminName": { "value": "REPLACE_WITH_ENTRA_DISPLAY_NAME" },
+    "allowPublicDemoNetworking": { "value": false },
+    "sqlAllowedIpRanges": { "value": [] }
+  }
+}

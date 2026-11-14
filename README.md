@@ -1,8 +1,10 @@
 # Agent Dashboard
 
-A local-first, read-only dashboard for Microsoft Foundry hosted agents and distributed solutions spanning Azure Functions, Container Apps, Foundry and tools. A Node.js backend serves a vanilla JavaScript frontend, with UI configuration and Docker packaging. Runtime data comes from your Application Insights telemetry; missing data is reported rather than simulated.
+A local-first, read-only **trace replay** dashboard for Microsoft Foundry hosted agents. A Node.js backend serves a vanilla JavaScript frontend, with UI configuration and Docker packaging. Runtime data comes from your Application Insights telemetry; missing data is reported rather than simulated.
 
-The original single-hosted-agent views remain intact. **Solution Workspaces** adds explicit multi-service definitions, cross-source trace correlation, declared/observed topology, concurrent timelines, run/version comparisons, local investigation notes and redacted exports. This is an independent project, not a Microsoft-sponsored product.
+**Agents & Workflow** and **Solution Workspaces** are disabled for now, including their deep links. Their implementation and APIs are retained, but the current UI focuses on Trace Playback. This is an independent project, not a Microsoft-sponsored product.
+
+To generate real traces, use the [three-agent article workflow example](examples/article-workflow/README.md). It includes opt-in provisioning and Foundry deployment scripts, SQL article claiming, web research, private Blob output, and Application Insights instrumentation. Nothing is provisioned by starting the dashboard.
 
 Start with [Getting started](docs/getting-started.md), [Distributed workspaces](docs/distributed-workspaces.md) and [Privacy](docs/privacy.md).
 
@@ -16,9 +18,10 @@ npm start
 
 Open http://localhost:3000. 
 
-1. Open **Settings → Sign in to Azure**, follow the Microsoft device-login link, and enter the displayed code. This uses Azure CLI, not OIDC. Alternatively run `az login` where the backend runs; an existing CLI login also works.
+1. Open **Settings → Sign in to Azure**, click **Copy code**, follow the Microsoft device-login link, and paste the code. If clipboard permission is unavailable, select the readonly code field and copy manually. This uses Azure CLI, not OIDC. Alternatively run `az login` where the backend runs; an existing CLI login also works.
 2. Refresh the project list, select a Foundry project, and optionally override its Application Insights App ID.
 3. Set a default agent and time window in Settings. Project selection, App ID overrides, and defaults are saved in `data/config.json` and survive restarts. Existing settings are preserved; legacy local account/password hashes are removed automatically on startup.
+4. Open **Trace Playback**, select a recorded trace, and press Play. Run-history rows also open replay; replay never invokes an agent.
 
 Device-code login may be blocked by your organization's Conditional Access policy; use an approved Azure CLI sign-in method instead. Project listing requires Azure Resource Graph/ARM read access; viewing agents and telemetry requires the corresponding Foundry and Application Insights permissions. A listed project does not guarantee data-plane access.
 
@@ -91,9 +94,11 @@ Each agent role in telemetry is classified:
 The prebuilt orchestrations (sequential, concurrent, handoff, group chat, Magentic) all emit `workflow.run`. Pattern labels other than sequential are best guesses. The workflow name is often an auto-generated `WorkflowBuilder-<uuid>` unless you named it in code.
 
 ### Views
-Overview, Agents & Workflow (flow diagram, hover popover, timeline, I/O viewer, run details), Trace Playback, Runs & History, Traces & Logs, Tools & Connectors, Solution Workspaces, Settings.
+Enabled: Overview, Trace Playback (default), Runs & History, Traces & Logs, Tools & Connectors, Settings. **Agents & Workflow** and **Solution Workspaces** remain visible as disabled buttons for now. Unsupported or disabled view URLs resolve to Trace Playback (Settings when no project is configured).
 
 ### Distributed solution workspaces
+
+**Disabled for now.** The following describes retained functionality, not an available UI workflow in this release.
 
 Create a workspace without changing the selected Foundry project. Add Application Insights sources and components with their exact telemetry service roles; optionally discover resource metadata, declare connections and record ownership/repository/version information. Definitions can live in another repository and be imported explicitly through the editor.
 
@@ -160,12 +165,14 @@ API routes do not require a local login or session cookie. Mutations require `X-
 - `backend/workspaces.js`, `backend/distributed.js`: definition validation and recorded distributed traces
 - `frontend/`: dashboard UI, including `workspaces.js`
 - `examples/distributed-workspace.json`: importable definition with placeholder App IDs
+- `examples/article-workflow/`: SQL/Blob hosted-agent example, telemetry, provisioning/deployment scripts and replay guide
 - `Dockerfile`, `compose.yaml`: single-container packaging and persistent volumes
 
 The legacy `agents.json` manifest and mock/environment-variable modes are no longer used. With no selected project, the dashboard prompts for selection instead of returning simulated agents.
 
 ## Limitations
 
+- Agents & Workflow and Solution Workspaces are temporarily disabled in the UI; use Trace Playback instead.
 - Application Insights only records what was instrumented. Distributed topology never invents edges; legacy sequential handoffs are explicitly marked inferred rather than recorded.
 - Prompt agents and classic assistants have no telemetry under their own role.
 - No live "running" status and no "New Run" button (running the agent would change its data).

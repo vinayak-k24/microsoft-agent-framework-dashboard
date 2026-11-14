@@ -1,0 +1,9 @@
+.env
+.env.*
+.venv
+.azure
+.foundry
+__pycache__
+tests
+infra
+scripts

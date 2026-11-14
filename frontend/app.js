@@ -33,8 +33,10 @@ const fmtS = (ms) => (ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : Math.round(ms)
 const NAV = [['overview', '🏠', 'Overview'], ['flow', '🔀', 'Agents & Workflow'], ['playback', '▶️', 'Trace Playback'], ['runs', '📈', 'Runs & History'],
   ['traces', '📋', 'Traces & Logs'], ['tools', '🧩', 'Tools & Connectors'], ['distributed', '🌐', 'Solution Workspaces'], ['settings', '⚙️', 'Settings']];
 const COLORS = ['#8b3cf0', '#16a5a5', '#8b3cf0', '#16a5a5', '#8b3cf0'];
+const DISABLED_VIEWS = new Set(['flow', 'distributed']);
+const enabledView = (view) => NAV.some(([key]) => key === view) && !DISABLED_VIEWS.has(view) ? view : 'playback';
 
-const S = { view: 'flow', cfg: null, agent: null, days: 30, summary: null, runs: [], runId: null, run: null, io: 0, raw: false, sel: 0, agents: [], wfAgents: [], runFilter: 'all', error: '' };
+const S = { view: 'playback', cfg: null, agent: null, days: 30, summary: null, runs: [], runId: null, run: null, io: 0, raw: false, sel: 0, agents: [], wfAgents: [], runFilter: 'all', error: '' };
 let azureTimer;
 
 async function azureStatus() {
@@ -45,8 +47,10 @@ async function azureStatus() {
 
 async function pollAzureLogin() {
   try {
-    S.azureLogin = await api('/api/azure/login');
-    render();
+    const login = await api('/api/azure/login');
+    const changed = JSON.stringify(login) !== JSON.stringify(S.azureLogin);
+    S.azureLogin = login;
+    if (changed) render();
     if (S.azureLogin.status === 'pending') azureTimer = setTimeout(pollAzureLogin, 2000);
     else if (S.azureLogin.status === 'ok') { await azureStatus(); await loadProjects(true); }
   } catch (e) { S.azureError = e.message; render(); }
@@ -54,10 +58,27 @@ async function pollAzureLogin() {
 
 async function startAzureLogin() {
   S.azureError = '';
+  S.azureCopyMessage = '';
   try {
     S.azureLogin = await api('/api/azure/login', { method: 'POST' });
     render(); clearTimeout(azureTimer); azureTimer = setTimeout(pollAzureLogin, 1000);
   } catch (e) { S.azureError = e.message; render(); }
+}
+
+async function copyAzureCode() {
+  const code = S.azureLogin?.userCode;
+  const feedback = $('#azurecopyfeedback');
+  if (!code || !feedback) return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable.');
+    await navigator.clipboard.writeText(code);
+    S.azureCopyMessage = 'Code copied.';
+  } catch (e) {
+    S.azureCopyMessage = `Could not copy: ${e.message} Select the code and copy it manually.`;
+    const input = $('#azurecode');
+    if (input) { input.focus(); input.select(); }
+  }
+  feedback.textContent = S.azureCopyMessage;
 }
 
 async function boot() {
@@ -65,8 +86,9 @@ async function boot() {
   S.cfg = await api('/api/config');
   S.agent = new URLSearchParams(location.search).get('agent') || S.cfg.defaultAgent;
   const q = new URLSearchParams(location.search);
-  if (NAV.some(([v]) => v === q.get('view'))) S.view = q.get('view');
-  if (!S.cfg.project && S.view !== 'distributed') S.view = 'settings';
+  S.view = enabledView(q.get('view'));
+  if (!S.cfg.project) S.view = 'settings';
+  const url = new URL(location.href); url.searchParams.set('view', S.view); history.replaceState(null, '', url);
   W.id = q.get('workspace') || '';
   if (/^[a-f0-9]{32}$/i.test(q.get('run') || '')) S.runId = q.get('run').toLowerCase();
   S.pbT = +q.get('t') || 0;
@@ -155,10 +177,11 @@ function render() {
     $('#main').innerHTML = `<div class="card error" role="alert">${esc(S.error || 'Loading dashboard...')} <a href="/">Reload dashboard</a></div>`;
     return;
   }
+  S.view = enabledView(S.view);
   pbStop();
   $('#side').innerHTML = `<div class="logo"><i></i><div>Microsoft Foundry<small>Hosted Agents</small></div></div>` +
-    NAV.map(([k, ic, l]) => `<button type="button" class="nav ${S.view === k ? 'on' : ''}" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}><span>${ic}</span>${l}</button>`).join('');
-  document.querySelectorAll('.nav').forEach((el) => el.onclick = () => { W.request++; W.busy = false; clearInterval(workspaceTimer); S.view = el.dataset.v; hideTip(); render(); if (S.view === 'distributed') { workspaceUrl(W.run?.traceId); workspaceReload(); } else { const url = new URL(location.href); url.searchParams.set('view', S.view); url.searchParams.delete('workspace'); url.searchParams.delete('trace'); history.replaceState(null, '', url); if (!S.projects) loadProjects(); } });
+    NAV.map(([k, ic, l]) => `<button type="button" class="nav ${S.view === k ? 'on' : ''}" data-v="${k}" ${DISABLED_VIEWS.has(k) ? 'disabled aria-disabled="true" title="Temporarily disabled: this release focuses on trace replay"' : ''} ${S.view === k ? 'aria-current="page"' : ''}><span>${ic}</span>${l}${DISABLED_VIEWS.has(k) ? ' (disabled for now)' : ''}</button>`).join('');
+  document.querySelectorAll('.nav:not(:disabled)').forEach((el) => el.onclick = () => { W.request++; W.busy = false; clearInterval(workspaceTimer); S.view = enabledView(el.dataset.v); hideTip(); render(); const url = new URL(location.href); url.searchParams.set('view', S.view); url.searchParams.delete('workspace'); url.searchParams.delete('trace'); history.replaceState(null, '', url); if (!S.projects) loadProjects(); });
   const titles = {
     overview: ['Overview', 'All agents in your Foundry project'], flow: ['Agents Dashboard', 'Visualize how your hosted agents work together and how information flows across the workflow.'],
     playback: ['Trace Playback', 'Replay a recorded agent run to see how information flows across agents, tools, and models, driven only by Application Insights telemetry.'],
@@ -333,7 +356,7 @@ function vOverview() {
     ${S.agents.map((a) => `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.kind)}</td><td>${esc(a.model)}</td><td>${esc((a.tools || []).join(', ') || '—')}</td><td>${a.metrics?.runs24h ?? '—'}</td><td>${a.metrics?.p95Ms ? fmtS(a.metrics.p95Ms) : '—'}</td><td><span class="pill ${a.status === 'healthy' ? 'ok' : 'failed'}">${esc(a.status)}</span></td></tr>`).join('')}</table></div>`;
 }
 function vRuns() {
-  return `<div class="card"><h2>Workflow runs</h2><p class="sub">Click a run to open it in the workflow view</p><table><tr><th>Started</th><th>Run ID</th><th>Duration</th><th>Agents</th><th>Tool calls</th><th>Tokens</th><th>Status</th></tr>
+  return `<div class="card"><h2>Workflow runs</h2><p class="sub">Click a run to open its trace replay</p><table><tr><th>Started</th><th>Run ID</th><th>Duration</th><th>Agents</th><th>Tool calls</th><th>Tokens</th><th>Status</th></tr>
     ${S.runs.map((r) => `<tr class="click" data-run="${r.runId}"><td>${fmtDT(r.start)}</td><td class="mono">${r.runId.slice(0, 16)}…</td><td>${fmtS(r.durationMs)}</td><td>${r.agents}</td><td>${r.toolCalls}</td><td>${r.tokens}</td><td><span class="pill ${r.fails ? 'failed' : 'ok'}">${r.fails ? 'Failed' : 'Completed'}</span></td></tr>`).join('')}</table></div>`;
 }
 function vTraces() {
@@ -377,7 +400,7 @@ function vSettings() {
   return `<div class="card"><h2>Azure connection</h2><p class="sub">Sign in with Azure to access your Foundry projects. No local account is required. All browser tabs share the backend Azure CLI identity.</p>
     ${S.azure ? `<p>Signed in as <b>${esc(S.azure.username)}</b> · ${esc(S.azure.subscription)}</p>` : '<p class="sub">Sign in to Azure to discover your accessible Foundry projects.</p>'}
     <button class="btn" id="azurelogin" ${login?.status === 'pending' ? 'disabled' : ''}>Sign in to Azure</button> <button class="btn ghost" id="azurecheck">Check connection</button>
-    ${login?.status === 'pending' ? `<p role="status">${login.userCode ? `Open <a href="https://microsoft.com/devicelogin" target="_blank" rel="noopener noreferrer">Microsoft device login</a> and enter <b class="mono">${esc(login.userCode)}</b>.` : 'Starting device login...'} Complete sign-in within 3 minutes.</p>` : ''}
+    ${login?.status === 'pending' ? `<p role="status">${login.userCode ? `Open <a href="https://microsoft.com/devicelogin" target="_blank" rel="noopener noreferrer">Microsoft device login</a> and enter <input id="azurecode" class="mono" aria-label="Azure device login code" readonly value="${esc(login.userCode)}" size="16" spellcheck="false"> <button class="btn ghost" id="azurecopy">Copy code</button>.` : 'Starting device login...'} Complete sign-in within 3 minutes.</p><p id="azurecopyfeedback" role="status">${esc(S.azureCopyMessage || '')}</p>` : ''}
     ${S.azureError || login?.error ? `<p class="error" role="alert">${esc(S.azureError || login.error)}</p>` : ''}
     <p class="sub">Azure CLI must be installed where the backend runs. You can also run <code>az login</code> there.</p></div>
   <div class="card" style="margin-top:14px"><h2>Foundry project</h2><p class="sub">Choose any project your Azure CLI login can see. Application Insights is looked up from the project's own connection.</p>
@@ -401,6 +424,7 @@ function vSettings() {
 function bind() {
   const al = $('#azurelogin'); if (al) al.onclick = startAzureLogin;
   const ac = $('#azurecheck'); if (ac) ac.onclick = azureStatus;
+  const cp = $('#azurecopy'); if (cp) cp.onclick = copyAzureCode;
   const df = $('#defaultsform'); if (df) df.onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -419,7 +443,7 @@ function bind() {
   });
   document.querySelectorAll('[data-io]').forEach((el) => el.onclick = () => { S.io = +el.dataset.io; render(); });
   document.querySelectorAll('#runsel').forEach((el) => el.onchange = (e) => { S.runId = e.target.value; loadRun(); });
-  document.querySelectorAll('tr[data-run]').forEach((el) => el.onclick = () => { S.runId = el.dataset.run; S.view = 'flow'; loadRun(); });
+  document.querySelectorAll('tr[data-run]').forEach((el) => el.onclick = () => { S.view = 'playback'; const url = new URL(location.href); url.searchParams.set('view', S.view); history.replaceState(null, '', url); pickRun(el.dataset.run); });
   const rs = $('#rawsel'); if (rs) rs.onchange = (e) => { S.raw = e.target.value === '1'; render(); };
   const fr = $('#fullresp'); if (fr) fr.onclick = () => { $('#modalbox').textContent = S.run.finalResponse; $('#modal').style.display = 'grid'; };
   const fs = $('#fs'); if (fs) fs.onclick = () => $('#wfcard').requestFullscreen?.();

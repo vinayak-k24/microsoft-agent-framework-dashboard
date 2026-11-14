@@ -1,5 +1,7 @@
 # Distributed solution workspaces
 
+**Disabled for now:** Solution Workspaces and Agents & Workflow are inactive navigation buttons. Workspace deep links open Trace Playback instead. The following is reference documentation for retained implementation/APIs, not current UI instructions. Use [Trace Playback and the article workflow example](../examples/article-workflow/README.md) for the supported path.
+
 A solution is a **logical grouping**, not a deployment boundary. Its orchestrator, agents and tools can live in different subscriptions, resource groups and repositories. This dashboard queries their Application Insights sources; it does not deploy, execute or modify those services.
 
 ## Connect a solution

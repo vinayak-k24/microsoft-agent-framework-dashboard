@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Article workflow: prerequisites",
+      "type": "aitk",
+      "command": "debug-check-prerequisites",
+      "args": { "portOccupancy": [5679, 8088] }
+    },
+    {
+      "label": "Article workflow: server",
+      "type": "process",
+      "command": "${workspaceFolder}\\examples\\article-workflow\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "debugpy", "--listen", "127.0.0.1:5679", "main.py"],
+      "isBackground": true,
+      "options": { "cwd": "${workspaceFolder}\\examples\\article-workflow" },
+      "dependsOn": ["Article workflow: prerequisites"],
+      "problemMatcher": {
+        "pattern": [{ "regexp": "^.*$", "file": 0, "location": 1, "message": 2 }],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Article workflow: open Inspector",
+      "type": "shell",
+      "command": "Write-Output '${input:openArticleInspector}'",
+      "presentation": { "reveal": "never" },
+      "dependsOn": ["Article workflow: server"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "openArticleInspector",
+      "type": "command",
+      "command": "ai-mlstudio.openTestTool",
+      "args": { "triggeredFrom": "tasks", "port": 8088 }
+    }
+  ]
+}

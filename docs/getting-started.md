@@ -11,9 +11,11 @@ npm test
 npm start
 ```
 
-Open `http://localhost:3000`. There is no local dashboard account, administrator setup, or hosted/OIDC authentication. Sign in to Azure in Settings or run `az login` where the backend runs. For the original single-agent views, select a Foundry project and configure its Application Insights connection. Use an organization-approved CLI login method if device login is blocked. All browser tabs share the backend identity and settings. Live access requires actual project/telemetry permissions and is not established by tests.
+Open `http://localhost:3000`. There is no local dashboard account, administrator setup, or hosted/OIDC authentication. Sign in to Azure in Settings using **Copy code**, or run `az login` where the backend runs. If browser clipboard access fails, select and copy the readonly code manually. Select a Foundry project and configure its Application Insights connection, then open **Trace Playback**, choose a trace and press Play. Use an organization-approved CLI login method if device login is blocked. All browser tabs share the backend identity and settings. Live access requires actual project/telemetry permissions and is not established by tests.
 
-For multi-source solutions, follow the [distributed workspace guide](distributed-workspaces.md) and its [example definition](../examples/distributed-workspace.json). Workspaces are independent of the selected Foundry project and can group services across subscriptions, resource groups, and repositories. They require access to their configured telemetry sources, not a selected Foundry project or a hosted shared dashboard.
+**Agents & Workflow and Solution Workspaces are disabled for now.** Trace Playback is the default connected view; disabled deep links redirect there. The [distributed workspace guide](distributed-workspaces.md) documents retained, inactive functionality.
+
+For an end-to-end trace source, follow the [article workflow example](../examples/article-workflow/README.md): explicitly provision resources, deploy without invoking, verify the deployed runtime identity, bootstrap SQL/Blob permissions and data, then invoke separately and select that project's telemetry here. These steps are separate from dashboard startup and incur Azure costs. Replay itself is read-only and never reruns the SQL/Blob workflow.
 
 **Privacy:** original single-agent views expose recorded raw inputs/outputs and logs when available. Redaction applies only to the distributed workspace **Download redacted trace** export, not other views, screenshots, or copied data. See [privacy](privacy.md).
 
