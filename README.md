@@ -11,7 +11,6 @@ Start with [Getting started](docs/getting-started.md), [Distributed workspaces](
 Install Node.js 22+ and [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli).
 
 ```powershell
-Set-Location D:\agent-dashboard
 npm start
 ```
 

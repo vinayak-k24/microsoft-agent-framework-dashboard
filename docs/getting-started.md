@@ -4,7 +4,6 @@
 The CommonJS backend serves the vanilla frontend on one HTTP origin and uses Azure CLI for Foundry/Application Insights access. Runtime requires Node.js 22+; development checks require Node.js 22.13+ (or Node 24+) for the current ESLint toolchain. Azure CLI is needed for cloud access, but fixture tests do not need a login. The application currently has no production npm dependencies; ESLint dependencies are development-only.
 
 ```powershell
-Set-Location D:\agent-dashboard
 npm ci
 npm run check
 npm run lint
