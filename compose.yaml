@@ -1,0 +1,14 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - dashboard-data:/app/data
+      - azure-login:/home/node/.azure
+    init: true
+    restart: unless-stopped
+
+volumes:
+  dashboard-data:
+  azure-login:

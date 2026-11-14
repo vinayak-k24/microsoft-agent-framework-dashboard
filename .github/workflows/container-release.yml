@@ -1,0 +1,37 @@
+name: Prepare container archive (no publishing)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm test
+      - name: Read and validate local version tag
+        id: version
+        run: |
+          node -e 'const fs = require("node:fs"); const v = require("./package.json").version; if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(v)) throw new Error("Invalid version"); fs.appendFileSync(process.env.GITHUB_OUTPUT, `value=${v}\n`);'
+      - name: Build versioned local image and archive
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          docker build --tag "foundry-agent-dashboard:$VERSION" .
+          mkdir -p release
+          docker save --output "release/foundry-agent-dashboard-$VERSION.tar" "foundry-agent-dashboard:$VERSION"
+          cd release
+          sha256sum "foundry-agent-dashboard-$VERSION.tar" > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foundry-agent-dashboard-${{ steps.version.outputs.value }}-linux-amd64
+          path: release/
+          retention-days: 7
+          if-no-files-found: error

@@ -1,0 +1,7 @@
+[
+  {
+    "name": "support-agent",
+    "endpoint": "http://localhost:8088",
+    "appInsightsAppId": ""
+  }
+]

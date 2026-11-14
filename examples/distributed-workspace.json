@@ -1,0 +1,20 @@
+{
+  "id": "support",
+  "name": "Customer support solution",
+  "version": "v1",
+  "sources": [
+    { "id": "functions", "name": "Functions telemetry", "appId": "11111111-1111-1111-1111-111111111111" },
+    { "id": "agents", "name": "Agents telemetry", "appId": "22222222-2222-2222-2222-222222222222" }
+  ],
+  "components": [
+    { "id": "orchestrator", "name": "Workflow orchestrator", "kind": "functions", "source": "functions", "role": "workflow-api", "owner": "Workflow team", "version": "v1" },
+    { "id": "agent-a", "name": "Container agent", "kind": "container-app", "source": "agents", "role": "agent-a", "owner": "Agent team" },
+    { "id": "agent-b", "name": "Foundry agent", "kind": "foundry", "source": "agents", "role": "agent-b", "owner": "Agent team" }
+  ],
+  "edges": [
+    { "from": "orchestrator", "to": "agent-a", "transport": "http" },
+    { "from": "orchestrator", "to": "agent-b", "transport": "http" }
+  ],
+  "thresholds": { "latencyMs": 30000, "errorRate": 0.05 },
+  "pricing": { "inputPerMillion": 0, "outputPerMillion": 0 }
+}

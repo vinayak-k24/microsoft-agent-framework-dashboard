@@ -1,0 +1,17 @@
+{
+  "name": "foundry-agent-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local full-stack Microsoft Foundry agent and trace dashboard",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node backend/server.js",
+    "check": "node tools/check.js",
+    "lint": "eslint backend frontend tools eslint.config.js --max-warnings 0",
+    "test": "node --test backend/test/*.test.js"
+  },
+  "devDependencies": {
+    "eslint": "^10.15.0",
+    "globals": "^16.5.0"
+  }
+}
