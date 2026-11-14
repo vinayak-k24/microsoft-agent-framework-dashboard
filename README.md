@@ -28,7 +28,7 @@ Device-code login may be blocked by your organization's Conditional Access polic
 Infrastructure options use command-line flags, not environment variables:
 
 ```powershell
-npm start -- --port 3100 --data-dir D:\dashboard-data
+npm start -- --port 3100
 ```
 
 The backend listens on loopback by default. The frontend is served by the backend on the same origin; no CORS setup or separate frontend server is needed.

@@ -19,7 +19,7 @@ For an end-to-end trace source, follow the [article workflow example](../example
 
 **Privacy:** original single-agent views expose recorded raw inputs/outputs and logs when available. Redaction applies only to the distributed workspace **Download redacted trace** export, not other views, screenshots, or copied data. See [privacy](privacy.md).
 
-Use `npm start -- --port 3100 --data-dir D:\dashboard-data` for local overrides. Keep host access on loopback. `/healthz` checks HTTP availability only.
+Use `npm start -- --port 3100` to override the local port. Settings use the default `data` directory. Keep host access on loopback. `/healthz` checks HTTP availability only.
 
 ## Existing Compose development path
 With Docker Desktop running Linux containers:
