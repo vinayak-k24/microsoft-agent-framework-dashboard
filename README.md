@@ -8,6 +8,12 @@ To generate real traces, use the [three-agent article workflow example](examples
 
 Start with [Getting started](docs/getting-started.md), [Distributed workspaces](docs/distributed-workspaces.md) and [Privacy](docs/privacy.md).
 
+## Trace replay demo
+
+![Trace replay showing recorded agent and tool interactions](docs/assets/trace-replay.gif)
+
+[Watch or download the screen recording (MP4)](docs/assets/trace-replay.mp4). This demonstrates playback of recorded traces, not a new agent invocation. The recording includes an earlier workflow configuration; the current example has no artificial delay.
+
 ## Run
 
 Install Node.js 22+ and [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli).
